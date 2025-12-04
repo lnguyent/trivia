@@ -14,7 +14,8 @@ fn main() {
     game.add("Pat".to_string());
     game.add("Sue".to_string());
     while {
-        game.roll(rng.gen_range(1, 6));
+        let dice_value: i32 = rng.gen_range(1, 6); // strange cast for reproducibility
+        game.roll(dice_value.try_into().unwrap());
         if rng.gen_range(0, 9) == 7 {
             not_a_winner = game.wrong_answer();
         } else {

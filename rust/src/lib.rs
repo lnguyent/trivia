@@ -5,10 +5,10 @@ const NUM_PLACES: usize = CATEGORIES.len() * NUM_PLACES_PER_CATEGORY;
 
 pub struct Game {
     players: Vec<String>,
-    places: [i32; MAX_PLAYERS],
-    purses: [i32; MAX_PLAYERS],
+    places: [usize; MAX_PLAYERS],
+    purses: [usize; MAX_PLAYERS],
     in_penaltybox: [bool; MAX_PLAYERS],
-    current_player: i32,
+    current_player: usize,
     is_getting_out_of_penaltybox: bool,
 
     pop_questions: Vec<String>,
@@ -55,11 +55,11 @@ impl Game {
     }
 
     fn did_player_win(&self) -> bool {
-        self.purses[self.current_player as usize] != 6
+        self.purses[self.current_player] != 6
     }
 
     fn current_category(&self) -> &'static str {
-        CATEGORIES[self.places[self.current_player as usize] as usize % CATEGORIES.len()]
+        CATEGORIES[self.places[self.current_player] % CATEGORIES.len()]
     }
 
     fn create_rock_question(&self, index: i32) -> String {
@@ -81,11 +81,11 @@ impl Game {
         println!("Question was incorrectly answered");
         println!(
             "{} was sent to the penalty box",
-            self.players[self.current_player as usize]
+            self.players[self.current_player]
         );
-        self.in_penaltybox[self.current_player as usize] = true;
+        self.in_penaltybox[self.current_player] = true;
         self.current_player += 1;
-        if self.current_player == self.players.len() as i32 {
+        if self.current_player == self.players.len() {
             self.current_player = 0;
         }
         true
@@ -119,46 +119,41 @@ impl Game {
 }
 
 impl Game {
-    pub fn roll(&mut self, roll: i32) {
-        println!(
-            "{} is current player",
-            self.players[self.current_player as usize]
-        );
+    pub fn roll(&mut self, roll: usize) {
+        println!("{} is current player", self.players[self.current_player]);
         println!("They have rolled a {}", roll);
-        if self.in_penaltybox[self.current_player as usize] {
+        if self.in_penaltybox[self.current_player] {
             if roll % 2 != 0 {
                 self.is_getting_out_of_penaltybox = true;
                 println!(
                     "{} is getting out of the penalty box",
-                    self.players[self.current_player as usize]
+                    self.players[self.current_player]
                 );
-                self.places[self.current_player as usize] += roll;
-                if self.places[self.current_player as usize] > (NUM_PLACES - 1) as i32 {
-                    self.places[self.current_player as usize] -= NUM_PLACES as i32;
+                self.places[self.current_player] += roll;
+                if self.places[self.current_player] > NUM_PLACES - 1 {
+                    self.places[self.current_player] -= NUM_PLACES;
                 }
                 println!(
                     "{0} 's new location is {1}",
-                    self.players[self.current_player as usize],
-                    self.places[self.current_player as usize]
+                    self.players[self.current_player], self.places[self.current_player]
                 );
                 println!("The category is {}", self.current_category());
                 self.ask_question();
             } else {
                 println!(
                     "{} is not getting out of the penalty box",
-                    self.players[self.current_player as usize]
+                    self.players[self.current_player]
                 );
                 self.is_getting_out_of_penaltybox = false;
             }
         } else {
-            self.places[self.current_player as usize] += roll;
-            if self.places[self.current_player as usize] > (NUM_PLACES - 1) as i32 {
-                self.places[self.current_player as usize] -= NUM_PLACES as i32;
+            self.places[self.current_player] += roll;
+            if self.places[self.current_player] > NUM_PLACES - 1 {
+                self.places[self.current_player] -= NUM_PLACES;
             }
             println!(
                 "{0} 's new location is {1}",
-                self.players[self.current_player as usize],
-                self.places[self.current_player as usize]
+                self.players[self.current_player], self.places[self.current_player]
             );
             println!("The category is {}", self.current_category());
             self.ask_question();
@@ -168,39 +163,37 @@ impl Game {
 
 impl Game {
     pub fn was_correctly_answered(&mut self) -> bool {
-        if self.in_penaltybox[self.current_player as usize] {
+        if self.in_penaltybox[self.current_player] {
             if self.is_getting_out_of_penaltybox {
                 println!("Answer was correct!!!!");
-                self.purses[self.current_player as usize] += 1;
+                self.purses[self.current_player] += 1;
                 println!(
                     "{0} now has {1} Gold Coins.",
-                    self.players[self.current_player as usize],
-                    self.purses[self.current_player as usize]
+                    self.players[self.current_player], self.purses[self.current_player]
                 );
                 let winner: bool = self.did_player_win();
                 self.current_player += 1;
-                if self.current_player == self.players.len() as i32 {
+                if self.current_player == self.players.len() {
                     self.current_player = 0;
                 }
                 winner
             } else {
                 self.current_player += 1;
-                if self.current_player == self.players.len() as i32 {
+                if self.current_player == self.players.len() {
                     self.current_player = 0;
                 }
                 true
             }
         } else {
             println!("Answer was correct!!!!");
-            self.purses[self.current_player as usize] += 1;
+            self.purses[self.current_player] += 1;
             println!(
                 "{0} now has {1} Gold Coins.",
-                self.players[self.current_player as usize],
-                self.purses[self.current_player as usize]
+                self.players[self.current_player], self.purses[self.current_player]
             );
             let winner: bool = self.did_player_win();
             self.current_player += 1;
-            if self.current_player == self.players.len() as i32 {
+            if self.current_player == self.players.len() {
                 self.current_player = 0;
             }
             winner
