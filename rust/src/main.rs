@@ -1,5 +1,7 @@
 extern crate rand;
 
+use rand::{Rng, SeedableRng, StdRng};
+
 pub struct Game {
     players: Vec<String>,
     places: [i32; 6],
@@ -215,12 +217,16 @@ fn main() {
     let mut game = Game {
         ..Default::default()
     };
+
+    // Use fixed seed for reproducible results
+    let mut rng = StdRng::from_seed(&[1; 32]);
+
     game.add("Chet".to_string());
     game.add("Pat".to_string());
     game.add("Sue".to_string());
     while {
-        game.roll(rand::random::<i32>() % 5 + 1);
-        if rand::random::<i32>() % 9 == 7 {
+        game.roll(rng.gen_range(1, 6));
+        if rng.gen_range(0, 9) == 7 {
             not_a_winner = game.wrong_answer();
         } else {
             not_a_winner = game.was_correctly_answered();
