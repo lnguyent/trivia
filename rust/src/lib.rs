@@ -1,8 +1,13 @@
+const MAX_PLAYERS: usize = 6;
+const CATEGORIES: [&str; 4] = ["Pop", "Science", "Sports", "Rock"];
+const NUM_PLACES_PER_CATEGORY: usize = 3;
+const NUM_PLACES: usize = CATEGORIES.len() * NUM_PLACES_PER_CATEGORY;
+
 pub struct Game {
     players: Vec<String>,
-    places: [i32; 6],
-    purses: [i32; 6],
-    in_penaltybox: [bool; 6],
+    places: [i32; MAX_PLAYERS],
+    purses: [i32; MAX_PLAYERS],
+    in_penaltybox: [bool; MAX_PLAYERS],
     current_player: i32,
     is_getting_out_of_penaltybox: bool,
 
@@ -22,9 +27,9 @@ impl Game {
     pub fn new() -> Game {
         let mut game = Game {
             players: vec![],
-            places: [0; 6],
-            purses: [0; 6],
-            in_penaltybox: [false; 6],
+            places: [0; MAX_PLAYERS],
+            purses: [0; MAX_PLAYERS],
+            in_penaltybox: [false; MAX_PLAYERS],
             current_player: 0,
             is_getting_out_of_penaltybox: false,
             pop_questions: Vec::new(),
@@ -54,12 +59,7 @@ impl Game {
     }
 
     fn current_category(&self) -> &'static str {
-        match self.places[self.current_player as usize] {
-            0 | 4 | 8 => "Pop",
-            1 | 5 | 9 => "Science",
-            2 | 6 | 10 => "Sports",
-            _ => "Rock",
-        }
+        CATEGORIES[self.places[self.current_player as usize] as usize % CATEGORIES.len()]
     }
 
     fn create_rock_question(&self, index: i32) -> String {
@@ -133,8 +133,8 @@ impl Game {
                     self.players[self.current_player as usize]
                 );
                 self.places[self.current_player as usize] += roll;
-                if self.places[self.current_player as usize] > 11 {
-                    self.places[self.current_player as usize] -= 12;
+                if self.places[self.current_player as usize] > (NUM_PLACES - 1) as i32 {
+                    self.places[self.current_player as usize] -= NUM_PLACES as i32;
                 }
                 println!(
                     "{0} 's new location is {1}",
@@ -152,8 +152,8 @@ impl Game {
             }
         } else {
             self.places[self.current_player as usize] += roll;
-            if self.places[self.current_player as usize] > 11 {
-                self.places[self.current_player as usize] -= 12;
+            if self.places[self.current_player as usize] > (NUM_PLACES - 1) as i32 {
+                self.places[self.current_player as usize] -= NUM_PLACES as i32;
             }
             println!(
                 "{0} 's new location is {1}",
