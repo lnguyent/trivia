@@ -4,6 +4,8 @@ use strum_macros::{EnumCount as EnumCountMacro, EnumIter};
 
 const MAX_PLAYERS: usize = 6;
 const NUM_PLACES_PER_CATEGORY: usize = 3;
+const NUM_CARDS_PER_CATEGORY: usize = 50;
+const TARGET_SCORE: usize = 6;
 
 #[derive(Clone, EnumCountMacro, EnumIter)]
 enum Category {
@@ -64,7 +66,7 @@ impl Game {
             sports_questions: Vec::new(),
             rock_questions: Vec::new(),
         };
-        for x in 0..50 {
+        for x in 0..NUM_CARDS_PER_CATEGORY {
             let pop_qu = game.create_question(Category::Pop, x);
             game.pop_questions.push(pop_qu);
             let sci_qu = game.create_question(Category::Science, x);
@@ -82,14 +84,14 @@ impl Game {
     }
 
     fn did_player_win(&self) -> bool {
-        self.purses[self.current_player] != 6
+        self.purses[self.current_player] != TARGET_SCORE
     }
 
     fn current_category(&self) -> Category {
         self.categories[self.places[self.current_player] % self.categories.len()].clone()
     }
 
-    fn create_question(&self, category: Category, index: i32) -> String {
+    fn create_question(&self, category: Category, index: usize) -> String {
         category.to_string() + " Question " + &index.to_string()
     }
 
