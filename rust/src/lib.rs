@@ -9,7 +9,7 @@ const NUM_CARDS_PER_CATEGORY: usize = 50;
 const TARGET_SCORE: usize = 6;
 
 #[derive(Clone, EnumCountMacro, EnumIter, Eq, PartialEq, Hash)]
-enum Category {
+pub enum Category {
     Pop,
     Science,
     Sports,
@@ -28,6 +28,64 @@ impl fmt::Display for Category {
     }
 }
 
+pub trait GameObserver {
+    fn on_user_added(&mut self, new_player_name: &str);
+    fn on_roll(&mut self, player: &str, roll: usize);
+    fn on_move(&mut self, player: &str, new_position: usize);
+    fn on_ask_question(&mut self, category: Category, question: Option<String>);
+    fn on_correct_answer(&mut self);
+    fn on_win_point(&mut self, player: &str, new_score: usize);
+    fn on_wrong_answer(&mut self);
+    fn on_go_to_penalty_box(&mut self, player: &str);
+    fn on_leave_penalty_box(&mut self, player: &str);
+    fn on_stay_in_penalty_box(&mut self, player: &str);
+}
+
+struct PrintBasedGameObserver {
+    num_players: usize,
+}
+impl Default for PrintBasedGameObserver {
+    fn default() -> Self {
+        PrintBasedGameObserver { num_players: 0 }
+    }
+}
+impl GameObserver for PrintBasedGameObserver {
+    fn on_user_added(&mut self, _new_player_name: &str) {
+        self.num_players += 1;
+        println!("{} was added", _new_player_name);
+        println!("They are player number {}", self.num_players);
+    }
+    fn on_roll(&mut self, player: &str, roll: usize) {
+        println!("{} is current player", player);
+        println!("They have rolled a {}", roll);
+    }
+    fn on_move(&mut self, player: &str, new_position: usize) {
+        println!("{0} 's new location is {1}", player, new_position);
+    }
+    fn on_ask_question(&mut self, category: Category, question: Option<String>) {
+        println!("The category is {}", category);
+        println!("{:?}", question.unwrap());
+    }
+    fn on_correct_answer(&mut self) {
+        println!("Answer was correct!!!!");
+    }
+    fn on_win_point(&mut self, player: &str, new_score: usize) {
+        println!("{0} now has {1} Gold Coins.", player, new_score);
+    }
+    fn on_wrong_answer(&mut self) {
+        println!("Question was incorrectly answered");
+    }
+    fn on_go_to_penalty_box(&mut self, player: &str) {
+        println!("{} was sent to the penalty box", player);
+    }
+    fn on_leave_penalty_box(&mut self, player: &str) {
+        println!("{} is getting out of the penalty box", player);
+    }
+    fn on_stay_in_penalty_box(&mut self, player: &str) {
+        println!("{} is not getting out of the penalty box", player);
+    }
+}
+
 pub struct Game {
     players: Vec<String>,
     places: [usize; MAX_PLAYERS],
@@ -40,6 +98,8 @@ pub struct Game {
     num_places: usize,
 
     questions: HashMap<Category, Vec<String>>,
+
+    observer: Box<dyn GameObserver>,
 }
 
 impl Default for Game {
@@ -60,6 +120,7 @@ impl Game {
             categories: Category::iter().collect(),
             num_places: Category::COUNT * NUM_PLACES_PER_CATEGORY,
             questions: HashMap::new(),
+            observer: Box::new(PrintBasedGameObserver::default()),
         };
         for x in 0..NUM_CARDS_PER_CATEGORY {
             for category in Category::iter() {
@@ -95,13 +156,12 @@ impl Game {
         self.places[self.how_many_players()] = 0;
         self.purses[self.how_many_players()] = 0;
         self.in_penaltybox[self.how_many_players()] = false;
-        println!("{} was added", l_player);
-        println!("They are player number {}", self.players.len());
+        self.observer.on_user_added(l_player.as_str());
         true
     }
 
     pub fn wrong_answer(&mut self) -> bool {
-        println!("Question was incorrectly answered");
+        self.observer.on_wrong_answer();
         self.go_to_penalty_box();
         self.change_player();
         true
@@ -117,13 +177,12 @@ impl Game {
 
 impl Game {
     fn ask_question(&mut self) {
-        println!("The category is {}", self.current_category());
-        self.questions
+        let question = self
+            .questions
             .get_mut(&self.current_category())
-            .map(|questions| {
-                let question = questions.pop();
-                println!("{:?}", question.unwrap());
-            });
+            .map(|questions| questions.pop().unwrap()); // FIXME: could be None!
+        self.observer
+            .on_ask_question(self.current_category(), question.clone());
     }
 }
 
@@ -133,39 +192,33 @@ impl Game {
         if self.places[self.current_player] > self.num_places - 1 {
             self.places[self.current_player] -= self.num_places;
         }
-        println!(
-            "{0} 's new location is {1}",
-            self.players[self.current_player], self.places[self.current_player]
+        self.observer.on_move(
+            self.players[self.current_player].as_str(),
+            self.places[self.current_player],
         );
     }
 
     fn leave_penalty_box(&mut self) {
         self.is_getting_out_of_penaltybox = true;
-        println!(
-            "{} is getting out of the penalty box",
-            self.players[self.current_player]
-        );
+        self.observer
+            .on_leave_penalty_box(self.players[self.current_player].as_str());
     }
 
     fn stay_in_penalty_box(&mut self) {
-        println!(
-            "{} is not getting out of the penalty box",
-            self.players[self.current_player]
-        );
+        self.observer
+            .on_stay_in_penalty_box(self.players[self.current_player].as_str());
         self.is_getting_out_of_penaltybox = false;
     }
 
     fn go_to_penalty_box(&mut self) {
-        println!(
-            "{} was sent to the penalty box",
-            self.players[self.current_player]
-        );
+        self.observer
+            .on_go_to_penalty_box(self.players[self.current_player].as_str());
         self.in_penaltybox[self.current_player] = true;
     }
 
     pub fn roll(&mut self, roll: usize) {
-        println!("{} is current player", self.players[self.current_player]);
-        println!("They have rolled a {}", roll);
+        self.observer
+            .on_roll(self.players[self.current_player].as_str(), roll);
         if self.in_penaltybox[self.current_player] {
             if roll % 2 != 0 {
                 self.leave_penalty_box();
@@ -180,14 +233,14 @@ impl Game {
 
 impl Game {
     fn win_one_point(&mut self) {
-        println!("Answer was correct!!!!");
         self.purses[self.current_player] += 1;
-        println!(
-            "{0} now has {1} Gold Coins.",
-            self.players[self.current_player], self.purses[self.current_player]
+        self.observer.on_win_point(
+            self.players[self.current_player].as_str(),
+            self.purses[self.current_player],
         );
     }
     pub fn was_correctly_answered(&mut self) -> bool {
+        self.observer.on_correct_answer();
         if self.in_penaltybox[self.current_player] && !self.is_getting_out_of_penaltybox {
             self.change_player();
             return true;
