@@ -102,21 +102,22 @@ impl Game {
 
     pub fn wrong_answer(&mut self) -> bool {
         println!("Question was incorrectly answered");
-        println!(
-            "{} was sent to the penalty box",
-            self.players[self.current_player]
-        );
-        self.in_penaltybox[self.current_player] = true;
+        self.go_to_penalty_box();
+        self.change_player();
+        true
+    }
+
+    fn change_player(&mut self) {
         self.current_player += 1;
         if self.current_player == self.players.len() {
             self.current_player = 0;
         }
-        true
     }
 }
 
 impl Game {
     fn ask_question(&mut self) {
+        println!("The category is {}", self.current_category());
         self.questions
             .get_mut(&self.current_category())
             .map(|questions| {
@@ -127,83 +128,83 @@ impl Game {
 }
 
 impl Game {
+    fn move_forward(&mut self, roll: usize) {
+        self.places[self.current_player] += roll;
+        if self.places[self.current_player] > self.num_places - 1 {
+            self.places[self.current_player] -= self.num_places;
+        }
+        println!(
+            "{0} 's new location is {1}",
+            self.players[self.current_player], self.places[self.current_player]
+        );
+    }
+
+    fn leave_penalty_box(&mut self) {
+        self.is_getting_out_of_penaltybox = true;
+        println!(
+            "{} is getting out of the penalty box",
+            self.players[self.current_player]
+        );
+    }
+
+    fn stay_in_penalty_box(&mut self) {
+        println!(
+            "{} is not getting out of the penalty box",
+            self.players[self.current_player]
+        );
+        self.is_getting_out_of_penaltybox = false;
+    }
+
+    fn go_to_penalty_box(&mut self) {
+        println!(
+            "{} was sent to the penalty box",
+            self.players[self.current_player]
+        );
+        self.in_penaltybox[self.current_player] = true;
+    }
+
     pub fn roll(&mut self, roll: usize) {
         println!("{} is current player", self.players[self.current_player]);
         println!("They have rolled a {}", roll);
         if self.in_penaltybox[self.current_player] {
             if roll % 2 != 0 {
-                self.is_getting_out_of_penaltybox = true;
-                println!(
-                    "{} is getting out of the penalty box",
-                    self.players[self.current_player]
-                );
-                self.places[self.current_player] += roll;
-                if self.places[self.current_player] > self.num_places - 1 {
-                    self.places[self.current_player] -= self.num_places;
-                }
-                println!(
-                    "{0} 's new location is {1}",
-                    self.players[self.current_player], self.places[self.current_player]
-                );
-                println!("The category is {}", self.current_category());
+                self.leave_penalty_box();
+                self.move_forward(roll);
                 self.ask_question();
             } else {
-                println!(
-                    "{} is not getting out of the penalty box",
-                    self.players[self.current_player]
-                );
-                self.is_getting_out_of_penaltybox = false;
+                self.stay_in_penalty_box();
             }
         } else {
-            self.places[self.current_player] += roll;
-            if self.places[self.current_player] > self.num_places - 1 {
-                self.places[self.current_player] -= self.num_places;
-            }
-            println!(
-                "{0} 's new location is {1}",
-                self.players[self.current_player], self.places[self.current_player]
-            );
-            println!("The category is {}", self.current_category());
+            self.move_forward(roll);
             self.ask_question();
         }
     }
 }
 
 impl Game {
+    fn win_one_point(&mut self) {
+        println!("Answer was correct!!!!");
+        self.purses[self.current_player] += 1;
+        println!(
+            "{0} now has {1} Gold Coins.",
+            self.players[self.current_player], self.purses[self.current_player]
+        );
+    }
     pub fn was_correctly_answered(&mut self) -> bool {
         if self.in_penaltybox[self.current_player] {
             if self.is_getting_out_of_penaltybox {
-                println!("Answer was correct!!!!");
-                self.purses[self.current_player] += 1;
-                println!(
-                    "{0} now has {1} Gold Coins.",
-                    self.players[self.current_player], self.purses[self.current_player]
-                );
+                self.win_one_point();
                 let winner: bool = self.did_player_win();
-                self.current_player += 1;
-                if self.current_player == self.players.len() {
-                    self.current_player = 0;
-                }
+                self.change_player();
                 winner
             } else {
-                self.current_player += 1;
-                if self.current_player == self.players.len() {
-                    self.current_player = 0;
-                }
+                self.change_player();
                 true
             }
         } else {
-            println!("Answer was correct!!!!");
-            self.purses[self.current_player] += 1;
-            println!(
-                "{0} now has {1} Gold Coins.",
-                self.players[self.current_player], self.purses[self.current_player]
-            );
+            self.win_one_point();
             let winner: bool = self.did_player_win();
-            self.current_player += 1;
-            if self.current_player == self.players.len() {
-                self.current_player = 0;
-            }
+            self.change_player();
             winner
         }
     }
