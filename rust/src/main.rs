@@ -49,20 +49,16 @@ impl Game {
         self.players.len()
     }
 
-    fn is_playable(&self) -> bool {
-        self.how_many_players() >= 2
-    }
-
     fn did_player_win(&self) -> bool {
-        !(self.purses[self.current_player as usize] == 6)
+        self.purses[self.current_player as usize] != 6
     }
 
     fn current_category(&self) -> &'static str {
         match self.places[self.current_player as usize] {
-            0 | 4 | 8 => return "Pop",
-            1 | 5 | 9 => return "Science",
-            2 | 6 | 10 => return "Sports",
-            _ => return "Rock",
+            0 | 4 | 8 => "Pop",
+            1 | 5 | 9 => "Science",
+            2 | 6 | 10 => "Sports",
+            _ => "Rock",
         }
     }
 
@@ -213,7 +209,7 @@ impl Game {
 }
 
 fn main() {
-    let mut not_a_winner: bool = false;
+    let mut not_a_winner: bool;
     let mut game = Game {
         ..Default::default()
     };
@@ -231,6 +227,6 @@ fn main() {
         } else {
             not_a_winner = game.was_correctly_answered();
         }
-        not_a_winner != false
+        not_a_winner
     } {}
 }
