@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use strum::{EnumCount, IntoEnumIterator};
 use strum_macros::{EnumCount as EnumCountMacro, EnumIter};
@@ -7,7 +8,7 @@ const NUM_PLACES_PER_CATEGORY: usize = 3;
 const NUM_CARDS_PER_CATEGORY: usize = 50;
 const TARGET_SCORE: usize = 6;
 
-#[derive(Clone, EnumCountMacro, EnumIter)]
+#[derive(Clone, EnumCountMacro, EnumIter, Eq, PartialEq, Hash)]
 enum Category {
     Pop,
     Science,
@@ -38,10 +39,7 @@ pub struct Game {
     categories: Vec<Category>,
     num_places: usize,
 
-    pop_questions: Vec<String>,
-    science_questions: Vec<String>,
-    sports_questions: Vec<String>,
-    rock_questions: Vec<String>,
+    questions: HashMap<Category, Vec<String>>,
 }
 
 impl Default for Game {
@@ -61,20 +59,16 @@ impl Game {
             is_getting_out_of_penaltybox: false,
             categories: Category::iter().collect(),
             num_places: Category::COUNT * NUM_PLACES_PER_CATEGORY,
-            pop_questions: Vec::new(),
-            science_questions: Vec::new(),
-            sports_questions: Vec::new(),
-            rock_questions: Vec::new(),
+            questions: HashMap::new(),
         };
         for x in 0..NUM_CARDS_PER_CATEGORY {
-            let pop_qu = game.create_question(Category::Pop, x);
-            game.pop_questions.push(pop_qu);
-            let sci_qu = game.create_question(Category::Science, x);
-            game.science_questions.push(sci_qu);
-            let spo_qu = game.create_question(Category::Sports, x);
-            game.sports_questions.push(spo_qu);
-            let rock_qu = game.create_question(Category::Rock, x);
-            game.rock_questions.push(rock_qu);
+            for category in Category::iter() {
+                let question = game.create_question(category.clone(), x);
+                game.questions
+                    .entry(category)
+                    .or_insert_with(Vec::new)
+                    .push(question);
+            }
         }
         game
     }
@@ -123,24 +117,12 @@ impl Game {
 
 impl Game {
     fn ask_question(&mut self) {
-        match self.current_category() {
-            Category::Pop => {
-                let top = self.pop_questions.pop();
-                println!("{:?}", top.unwrap());
-            }
-            Category::Science => {
-                let top = self.science_questions.pop();
-                println!("{:?}", top.unwrap());
-            }
-            Category::Sports => {
-                let top = self.sports_questions.pop();
-                println!("{:?}", top.unwrap());
-            }
-            Category::Rock => {
-                let top = self.rock_questions.pop();
-                println!("{:?}", top.unwrap());
-            }
-        }
+        self.questions
+            .get_mut(&self.current_category())
+            .map(|questions| {
+                let question = questions.pop();
+                println!("{:?}", question.unwrap());
+            });
     }
 }
 
