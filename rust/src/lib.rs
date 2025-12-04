@@ -1,7 +1,29 @@
+use std::fmt;
+use strum::{EnumCount, IntoEnumIterator};
+use strum_macros::{EnumCount as EnumCountMacro, EnumIter};
+
 const MAX_PLAYERS: usize = 6;
-const CATEGORIES: [&str; 4] = ["Pop", "Science", "Sports", "Rock"];
 const NUM_PLACES_PER_CATEGORY: usize = 3;
-const NUM_PLACES: usize = CATEGORIES.len() * NUM_PLACES_PER_CATEGORY;
+
+#[derive(Clone, EnumCountMacro, EnumIter)]
+enum Category {
+    Pop,
+    Science,
+    Sports,
+    Rock,
+}
+
+impl fmt::Display for Category {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let category_str = match self {
+            Category::Pop => "Pop",
+            Category::Science => "Science",
+            Category::Sports => "Sports",
+            Category::Rock => "Rock",
+        };
+        write!(f, "{}", category_str)
+    }
+}
 
 pub struct Game {
     players: Vec<String>,
@@ -10,6 +32,9 @@ pub struct Game {
     in_penaltybox: [bool; MAX_PLAYERS],
     current_player: usize,
     is_getting_out_of_penaltybox: bool,
+
+    categories: Vec<Category>,
+    num_places: usize,
 
     pop_questions: Vec<String>,
     science_questions: Vec<String>,
@@ -32,19 +57,21 @@ impl Game {
             in_penaltybox: [false; MAX_PLAYERS],
             current_player: 0,
             is_getting_out_of_penaltybox: false,
+            categories: Category::iter().collect(),
+            num_places: Category::COUNT * NUM_PLACES_PER_CATEGORY,
             pop_questions: Vec::new(),
             science_questions: Vec::new(),
             sports_questions: Vec::new(),
             rock_questions: Vec::new(),
         };
         for x in 0..50 {
-            let pop_qu = "Pop Question ".to_string() + &x.to_string();
+            let pop_qu = game.create_question(Category::Pop, x);
             game.pop_questions.push(pop_qu);
-            let sci_qu = "Science Question ".to_string() + &x.to_string();
+            let sci_qu = game.create_question(Category::Science, x);
             game.science_questions.push(sci_qu);
-            let spo_qu = "Sports Question ".to_string() + &x.to_string();
+            let spo_qu = game.create_question(Category::Sports, x);
             game.sports_questions.push(spo_qu);
-            let rock_qu = game.create_rock_question(x);
+            let rock_qu = game.create_question(Category::Rock, x);
             game.rock_questions.push(rock_qu);
         }
         game
@@ -58,12 +85,12 @@ impl Game {
         self.purses[self.current_player] != 6
     }
 
-    fn current_category(&self) -> &'static str {
-        CATEGORIES[self.places[self.current_player] % CATEGORIES.len()]
+    fn current_category(&self) -> Category {
+        self.categories[self.places[self.current_player] % self.categories.len()].clone()
     }
 
-    fn create_rock_question(&self, index: i32) -> String {
-        "Rock Question ".to_string() + &index.to_string()
+    fn create_question(&self, category: Category, index: i32) -> String {
+        category.to_string() + " Question " + &index.to_string()
     }
 
     pub fn add(&mut self, player_name: String) -> bool {
@@ -95,24 +122,21 @@ impl Game {
 impl Game {
     fn ask_question(&mut self) {
         match self.current_category() {
-            "Pop" => {
+            Category::Pop => {
                 let top = self.pop_questions.pop();
                 println!("{:?}", top.unwrap());
             }
-            "Science" => {
+            Category::Science => {
                 let top = self.science_questions.pop();
                 println!("{:?}", top.unwrap());
             }
-            "Sports" => {
+            Category::Sports => {
                 let top = self.sports_questions.pop();
                 println!("{:?}", top.unwrap());
             }
-            "Rock" => {
+            Category::Rock => {
                 let top = self.rock_questions.pop();
                 println!("{:?}", top.unwrap());
-            }
-            _ => {
-                println!("Unexpected case");
             }
         }
     }
@@ -130,8 +154,8 @@ impl Game {
                     self.players[self.current_player]
                 );
                 self.places[self.current_player] += roll;
-                if self.places[self.current_player] > NUM_PLACES - 1 {
-                    self.places[self.current_player] -= NUM_PLACES;
+                if self.places[self.current_player] > self.num_places - 1 {
+                    self.places[self.current_player] -= self.num_places;
                 }
                 println!(
                     "{0} 's new location is {1}",
@@ -148,8 +172,8 @@ impl Game {
             }
         } else {
             self.places[self.current_player] += roll;
-            if self.places[self.current_player] > NUM_PLACES - 1 {
-                self.places[self.current_player] -= NUM_PLACES;
+            if self.places[self.current_player] > self.num_places - 1 {
+                self.places[self.current_player] -= self.num_places;
             }
             println!(
                 "{0} 's new location is {1}",

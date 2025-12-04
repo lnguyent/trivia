@@ -6,3 +6,5 @@ authors = ["Cengizhan Paşaoğlu <cengizhanpasaoglu@gmail.com>"]
 
 [dependencies]
 rand = "0.3.11"
+strum = "0.27.2"
+strum_macros = "0.27.2"
