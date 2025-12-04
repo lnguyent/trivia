@@ -169,15 +169,12 @@ impl Game {
         if self.in_penaltybox[self.current_player] {
             if roll % 2 != 0 {
                 self.leave_penalty_box();
-                self.move_forward(roll);
-                self.ask_question();
             } else {
                 self.stay_in_penalty_box();
             }
-        } else {
-            self.move_forward(roll);
-            self.ask_question();
         }
+        self.move_forward(roll);
+        self.ask_question();
     }
 }
 
@@ -191,21 +188,13 @@ impl Game {
         );
     }
     pub fn was_correctly_answered(&mut self) -> bool {
-        if self.in_penaltybox[self.current_player] {
-            if self.is_getting_out_of_penaltybox {
-                self.win_one_point();
-                let winner: bool = self.did_player_win();
-                self.change_player();
-                winner
-            } else {
-                self.change_player();
-                true
-            }
-        } else {
-            self.win_one_point();
-            let winner: bool = self.did_player_win();
+        if self.in_penaltybox[self.current_player] && !self.is_getting_out_of_penaltybox {
             self.change_player();
-            winner
+            return true;
         }
+        self.win_one_point();
+        let winner: bool = self.did_player_win();
+        self.change_player();
+        winner
     }
 }
