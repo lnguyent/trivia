@@ -8,6 +8,64 @@ const NUM_PLACES_PER_CATEGORY: usize = 3;
 const NUM_CARDS_PER_CATEGORY: usize = 50;
 const TARGET_SCORE: usize = 6;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Dice {
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+}
+
+impl fmt::Display for Dice {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let category_str = match self {
+            Dice::One => "1",
+            Dice::Two => "2",
+            Dice::Three => "3",
+            Dice::Four => "4",
+            Dice::Five => "5",
+            Dice::Six => "6",
+        };
+        write!(f, "{}", category_str)
+    }
+}
+
+impl Into<usize> for &Dice {
+    fn into(self) -> usize {
+        match self {
+            Dice::One => 1,
+            Dice::Two => 2,
+            Dice::Three => 3,
+            Dice::Four => 4,
+            Dice::Five => 5,
+            Dice::Six => 6,
+        }
+    }
+}
+
+impl From<i32> for Dice {
+    fn from(value: i32) -> Self {
+        match value {
+            1 => Dice::One,
+            2 => Dice::Two,
+            3 => Dice::Three,
+            4 => Dice::Four,
+            5 => Dice::Five,
+            6 => Dice::Six,
+            _ => panic!("Invalid dice value"),
+        }
+    }
+}
+
+impl Dice {
+    pub fn is_odd(&self) -> bool {
+        let value: usize = self.into();
+        value % 2 == 1
+    }
+}
+
 #[derive(Clone, EnumCountMacro, EnumIter, Eq, PartialEq, Hash)]
 pub enum Category {
     Pop,
@@ -30,7 +88,7 @@ impl fmt::Display for Category {
 
 pub trait GameObserver {
     fn on_user_added(&mut self, new_player_name: &str);
-    fn on_roll(&mut self, player: &str, roll: usize);
+    fn on_roll(&mut self, player: &str, roll: Dice);
     fn on_move(&mut self, player: &str, new_position: usize);
     fn on_ask_question(&mut self, category: Category, question: Option<String>);
     fn on_win_point(&mut self, player: &str, new_score: usize);
@@ -53,7 +111,7 @@ impl GameObserver for PrintBasedGameObserver {
         println!("{} was added", _new_player_name);
         println!("They are player number {}", self.num_players);
     }
-    fn on_roll(&mut self, player: &str, roll: usize) {
+    fn on_roll(&mut self, player: &str, roll: Dice) {
         println!("{} is current player", player);
         println!("They have rolled a {}", roll);
     }
@@ -216,18 +274,18 @@ impl Game {
         self.in_penaltybox[self.current_player] = true;
     }
 
-    pub fn roll(&mut self, roll: usize) {
+    pub fn roll(&mut self, roll: Dice) {
         self.observer
-            .on_roll(self.players[self.current_player].as_str(), roll);
+            .on_roll(self.players[self.current_player].as_str(), roll.clone());
         if self.in_penaltybox[self.current_player] {
-            if roll % 2 == 1 {
+            if (&roll).is_odd() {
                 self.leave_penalty_box();
             } else {
                 self.stay_in_penalty_box();
                 return;
             }
         }
-        self.move_forward(roll);
+        self.move_forward((&roll).into());
         self.ask_question();
     }
 }

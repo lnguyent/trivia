@@ -1,12 +1,12 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use trivia::{Category, Game, GameObserver};
+use trivia::{Category, Dice, Game, GameObserver};
 
 struct Spy {
     count_go_to_penalty_box: HashMap<String, usize>,
     count_leave_penalty_box: HashMap<String, usize>,
-    rolls: Vec<(String, usize)>,
+    rolls: Vec<(String, Dice)>,
     moves: Vec<(String, usize)>,
     wins: Vec<(String, usize)>,
 }
@@ -31,7 +31,7 @@ struct SpyWrapper {
 
 impl GameObserver for SpyWrapper {
     fn on_user_added(&mut self, _new_player_name: &str) {}
-    fn on_roll(&mut self, player: &str, roll: usize) {
+    fn on_roll(&mut self, player: &str, roll: Dice) {
         self.spy.borrow_mut().rolls.push((player.to_string(), roll));
     }
     fn on_move(&mut self, _player: &str, _new_position: usize) {
@@ -73,7 +73,7 @@ fn test_when_not_in_penalty_box_then_move() {
     let mut game = Game::new_with_observer(Box::new(spy_wrapper));
 
     game.add("Dave".to_string());
-    game.roll(4); // move
+    game.roll(Dice::Four); // move
 
     assert_eq!(spy.borrow().moves.len(), 1);
     assert_eq!(spy.borrow().moves[0].1, 4);
@@ -86,11 +86,11 @@ fn test_when_leaving_penalty_box_then_not_in_penalty_box_anymore() {
     let mut game = Game::new_with_observer(Box::new(spy_wrapper));
 
     game.add("Alice".to_string());
-    game.roll(1);
+    game.roll(Dice::One);
     game.wrong_answer(); // goes to penalty box
-    game.roll(1); // leaves penalty box
+    game.roll(Dice::One); // leaves penalty box
     game.was_correctly_answered();
-    game.roll(1); // already out of penalty box
+    game.roll(Dice::One); // already out of penalty box
     game.was_correctly_answered();
 
     assert_eq!(
@@ -106,9 +106,9 @@ fn test_when_in_penalty_box_then_do_not_move() {
     let mut game = Game::new_with_observer(Box::new(spy_wrapper));
 
     game.add("Bob".to_string());
-    game.roll(1); // move
+    game.roll(Dice::One); // move
     game.wrong_answer(); // goes to penalty box
-    game.roll(2); // stays in penalty box and do not move
+    game.roll(Dice::Two); // stays in penalty box and do not move
 
     assert_eq!(spy.borrow().moves.len(), 1);
     assert_eq!(spy.borrow().moves[0].1, 1);
@@ -120,9 +120,9 @@ fn test_when_in_penalty_box_and_roll_odd_then_leave_penalty_box() {
     let mut game = Game::new_with_observer(Box::new(spy_wrapper));
 
     game.add("Eve".to_string());
-    game.roll(1); // move
+    game.roll(Dice::One); // move
     game.wrong_answer(); // goes to penalty box
-    game.roll(5); // leaves penalty box
+    game.roll(Dice::Five); // leaves penalty box
 
     assert_eq!(spy.borrow().count_leave_penalty_box.get("Eve").unwrap(), &1);
 }
@@ -134,9 +134,9 @@ fn test_when_in_penalty_box_and_leaving_then_move() {
     let mut game = Game::new_with_observer(Box::new(spy_wrapper));
 
     game.add("Carol".to_string());
-    game.roll(1); // move
+    game.roll(Dice::One); // move
     game.wrong_answer(); // goes to penalty box
-    game.roll(3); // leaves penalty box and moves
+    game.roll(Dice::Three); // leaves penalty box and moves
 
     assert_eq!(spy.borrow().moves.len(), 2);
     assert_eq!(spy.borrow().moves[0].1, 1);
@@ -150,9 +150,9 @@ fn test_when_answer_correctly_then_win_one_point() {
     let mut game = Game::new_with_observer(Box::new(spy_wrapper));
 
     game.add("Frank".to_string());
-    game.roll(2); // move
+    game.roll(Dice::Two); // move
     game.was_correctly_answered(); // wins one point
-    game.roll(2); // move
+    game.roll(Dice::Two); // move
     game.was_correctly_answered(); // wins another point
 
     assert_eq!(spy.borrow().wins.len(), 2);
@@ -171,7 +171,7 @@ fn test_when_user_has_six_points_then_wins() {
     game.add("Grace".to_string());
     let mut not_a_winner = true;
     while not_a_winner {
-        game.roll(3);
+        game.roll(Dice::Three);
         not_a_winner = game.was_correctly_answered();
     }
 
@@ -188,21 +188,21 @@ fn test_on_roll_is_called() {
 
     game.add("Heidi".to_string());
     game.add("Ivan".to_string());
-    game.roll(4);
+    game.roll(Dice::Four);
     game.was_correctly_answered();
-    game.roll(2);
+    game.roll(Dice::Two);
     game.wrong_answer();
-    game.roll(3);
+    game.roll(Dice::Three);
     game.was_correctly_answered();
-    game.roll(6);
+    game.roll(Dice::Six);
 
     assert_eq!(spy.borrow().rolls.len(), 4);
     assert_eq!(spy.borrow().rolls[0].0, "Heidi");
-    assert_eq!(spy.borrow().rolls[0].1, 4);
+    assert_eq!(spy.borrow().rolls[0].1, Dice::Four);
     assert_eq!(spy.borrow().rolls[1].0, "Ivan");
-    assert_eq!(spy.borrow().rolls[1].1, 2);
+    assert_eq!(spy.borrow().rolls[1].1, Dice::Two);
     assert_eq!(spy.borrow().rolls[2].0, "Heidi");
-    assert_eq!(spy.borrow().rolls[2].1, 3);
+    assert_eq!(spy.borrow().rolls[2].1, Dice::Three);
     assert_eq!(spy.borrow().rolls[3].0, "Ivan");
-    assert_eq!(spy.borrow().rolls[3].1, 6);
+    assert_eq!(spy.borrow().rolls[3].1, Dice::Six);
 }
