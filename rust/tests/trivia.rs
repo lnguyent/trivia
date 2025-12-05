@@ -8,6 +8,7 @@ struct Spy {
     count_leave_penalty_box: HashMap<String, usize>,
     rolls: Vec<(String, Dice)>,
     moves: Vec<(String, usize)>,
+    questions: Vec<Category>,
     wins: Vec<(String, usize)>,
 }
 impl Default for Spy {
@@ -17,6 +18,7 @@ impl Default for Spy {
             count_leave_penalty_box: HashMap::new(),
             rolls: Vec::new(),
             moves: Vec::new(),
+            questions: Vec::new(),
             wins: Vec::new(),
         }
     }
@@ -40,7 +42,9 @@ impl GameObserver for SpyWrapper {
             .moves
             .push((_player.to_string(), _new_position));
     }
-    fn on_ask_question(&mut self, _category: Category, _question: Option<String>) {}
+    fn on_ask_question(&mut self, category: Category, _question: Option<String>) {
+        self.spy.borrow_mut().questions.push(category);
+    }
     fn on_win_point(&mut self, player: &str, new_score: usize) {
         self.spy
             .borrow_mut()
@@ -205,4 +209,102 @@ fn test_on_roll_is_called() {
     assert_eq!(spy.borrow().rolls[2].1, Dice::Three);
     assert_eq!(spy.borrow().rolls[3].0, "Ivan");
     assert_eq!(spy.borrow().rolls[3].1, Dice::Six);
+}
+
+#[test]
+fn test_full_game() {
+    let spy = Rc::new(RefCell::new(Spy::default()));
+    let spy_wrapper = SpyWrapper { spy: spy.clone() };
+    let mut game = Game::new_with_observer(Box::new(spy_wrapper));
+
+    game.add("Chet".to_string());
+    game.add("Pat".to_string());
+    game.add("Sue".to_string());
+
+    let rolls = vec![
+        (Dice::Four, true),
+        (Dice::Four, true),
+        (Dice::Five, true),
+        (Dice::Four, true),
+        (Dice::Three, true),
+        (Dice::Two, true),
+        (Dice::Five, true),
+        (Dice::Four, true),
+        (Dice::One, true),
+        (Dice::Five, true),
+        (Dice::One, true),
+        (Dice::Four, false),
+        (Dice::Four, true),
+        (Dice::One, true),
+        (Dice::Five, true),
+        (Dice::Five, true),
+    ];
+
+    let mut not_a_winner: bool;
+    for (roll, answer) in rolls {
+        game.roll(roll);
+        if answer {
+            not_a_winner = game.was_correctly_answered();
+        } else {
+            not_a_winner = game.wrong_answer();
+        }
+        if !not_a_winner {
+            break;
+        }
+    }
+
+    assert_eq!(spy.borrow().rolls.len(), 16);
+    assert_eq!(spy.borrow().rolls[0].0, "Chet");
+    assert_eq!(spy.borrow().rolls[0].1, Dice::Four);
+    assert_eq!(spy.borrow().rolls[1].0, "Pat");
+    assert_eq!(spy.borrow().rolls[1].1, Dice::Four);
+    assert_eq!(spy.borrow().rolls[2].0, "Sue");
+    assert_eq!(spy.borrow().rolls[2].1, Dice::Five);
+    // ... skipping some assertions for brevity ...
+    assert_eq!(spy.borrow().rolls[14].0, "Sue");
+    assert_eq!(spy.borrow().rolls[14].1, Dice::Five);
+    assert_eq!(spy.borrow().rolls[15].0, "Chet");
+    assert_eq!(spy.borrow().rolls[15].1, Dice::Five);
+
+    assert_eq!(spy.borrow().moves.len(), 16);
+    assert_eq!(spy.borrow().moves[0].0, "Chet");
+    assert_eq!(spy.borrow().moves[0].1, 4);
+    assert_eq!(spy.borrow().moves[1].0, "Pat");
+    assert_eq!(spy.borrow().moves[1].1, 4);
+    assert_eq!(spy.borrow().moves[2].0, "Sue");
+    assert_eq!(spy.borrow().moves[2].1, 5);
+    // ... skipping some assertions for brevity ...
+    assert_eq!(spy.borrow().moves[14].0, "Sue");
+    assert_eq!(spy.borrow().moves[14].1, 5);
+    assert_eq!(spy.borrow().moves[15].0, "Chet");
+    assert_eq!(spy.borrow().moves[15].1, 3);
+
+    assert_eq!(spy.borrow().wins.len(), 15);
+    assert_eq!(spy.borrow().wins[0].0, "Chet");
+    assert_eq!(spy.borrow().wins[0].1, 1);
+    assert_eq!(spy.borrow().wins[1].0, "Pat");
+    assert_eq!(spy.borrow().wins[1].1, 1);
+    assert_eq!(spy.borrow().wins[2].0, "Sue");
+    assert_eq!(spy.borrow().wins[2].1, 1);
+    // ... skipping some assertions for brevity ...
+    assert_eq!(spy.borrow().wins[13].0, "Sue");
+    assert_eq!(spy.borrow().wins[13].1, 4);
+    assert_eq!(spy.borrow().wins[14].0, "Chet");
+    assert_eq!(spy.borrow().wins[14].1, 6);
+
+    assert_eq!(spy.borrow().questions.len(), 16);
+    assert_eq!(spy.borrow().questions[0], Category::Pop);
+    assert_eq!(spy.borrow().questions[1], Category::Pop);
+    assert_eq!(spy.borrow().questions[2], Category::Science);
+    // ... skipping some assertions for brevity ...
+    assert_eq!(spy.borrow().questions[13], Category::Science);
+    assert_eq!(spy.borrow().questions[14], Category::Science);
+    assert_eq!(spy.borrow().questions[15], Category::Rock);
+
+    assert!(spy.borrow().count_go_to_penalty_box.get("Chet").is_none());
+    assert!(spy.borrow().count_leave_penalty_box.get("Chet").is_none());
+    assert!(spy.borrow().count_go_to_penalty_box.get("Pat").is_none());
+    assert!(spy.borrow().count_leave_penalty_box.get("Pat").is_none());
+    assert_eq!(spy.borrow().count_go_to_penalty_box.get("Sue").unwrap(), &1);
+    assert_eq!(spy.borrow().count_leave_penalty_box.get("Sue").unwrap(), &1);
 }

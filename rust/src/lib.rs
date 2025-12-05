@@ -66,7 +66,7 @@ impl Dice {
     }
 }
 
-#[derive(Clone, EnumCountMacro, EnumIter, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, EnumCountMacro, EnumIter, Eq, PartialEq, Hash)]
 pub enum Category {
     Pop,
     Science,

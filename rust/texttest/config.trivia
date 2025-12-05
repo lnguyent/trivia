@@ -1,3 +1,0 @@
-executable:${TEXTTEST_ROOT}/../target/debug/trivia
-full_name:Trivia
-filename_convention_scheme:standard
