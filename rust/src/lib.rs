@@ -231,6 +231,7 @@ impl Game {
                 self.leave_penalty_box();
             } else {
                 self.stay_in_penalty_box();
+                return;
             }
         }
         self.move_forward(roll);
