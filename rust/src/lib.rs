@@ -227,7 +227,7 @@ impl Game {
         self.observer
             .on_roll(self.players[self.current_player].as_str(), roll);
         if self.in_penaltybox[self.current_player] {
-            if roll % 2 != 0 {
+            if roll % 2 == 1 {
                 self.leave_penalty_box();
             } else {
                 self.stay_in_penalty_box();
