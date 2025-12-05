@@ -134,6 +134,12 @@ impl Game {
         game
     }
 
+    pub fn new_with_observer(observer: Box<dyn GameObserver>) -> Game {
+        let mut game = Game::new();
+        game.observer = observer;
+        game
+    }
+
     fn how_many_players(&self) -> usize {
         self.players.len()
     }
@@ -200,6 +206,7 @@ impl Game {
 
     fn leave_penalty_box(&mut self) {
         self.is_getting_out_of_penaltybox = true;
+        self.in_penaltybox[self.current_player] = false;
         self.observer
             .on_leave_penalty_box(self.players[self.current_player].as_str());
     }

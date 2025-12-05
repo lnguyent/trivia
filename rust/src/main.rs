@@ -5,7 +5,7 @@ use trivia::Game;
 
 fn main() {
     let mut not_a_winner: bool;
-    let mut game: Game = Default::default();
+    let mut game = Game::default();
 
     // Use fixed seed for reproducible results
     let mut rng = StdRng::from_seed(&[1; 32]);
