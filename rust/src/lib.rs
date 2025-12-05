@@ -33,9 +33,7 @@ pub trait GameObserver {
     fn on_roll(&mut self, player: &str, roll: usize);
     fn on_move(&mut self, player: &str, new_position: usize);
     fn on_ask_question(&mut self, category: Category, question: Option<String>);
-    fn on_correct_answer(&mut self);
     fn on_win_point(&mut self, player: &str, new_score: usize);
-    fn on_wrong_answer(&mut self);
     fn on_go_to_penalty_box(&mut self, player: &str);
     fn on_leave_penalty_box(&mut self, player: &str);
     fn on_stay_in_penalty_box(&mut self, player: &str);
@@ -66,16 +64,12 @@ impl GameObserver for PrintBasedGameObserver {
         println!("The category is {}", category);
         println!("{:?}", question.unwrap());
     }
-    fn on_correct_answer(&mut self) {
-        println!("Answer was correct!!!!");
-    }
     fn on_win_point(&mut self, player: &str, new_score: usize) {
+        println!("Answer was correct!!!!");
         println!("{0} now has {1} Gold Coins.", player, new_score);
     }
-    fn on_wrong_answer(&mut self) {
-        println!("Question was incorrectly answered");
-    }
     fn on_go_to_penalty_box(&mut self, player: &str) {
+        println!("Question was incorrectly answered");
         println!("{} was sent to the penalty box", player);
     }
     fn on_leave_penalty_box(&mut self, player: &str) {
@@ -167,7 +161,6 @@ impl Game {
     }
 
     pub fn wrong_answer(&mut self) -> bool {
-        self.observer.on_wrong_answer();
         self.go_to_penalty_box();
         self.change_player();
         true
@@ -248,7 +241,6 @@ impl Game {
         );
     }
     pub fn was_correctly_answered(&mut self) -> bool {
-        self.observer.on_correct_answer();
         if self.in_penaltybox[self.current_player] && !self.is_getting_out_of_penaltybox {
             self.change_player();
             return true;

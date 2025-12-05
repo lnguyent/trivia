@@ -41,14 +41,12 @@ impl GameObserver for SpyWrapper {
             .push((_player.to_string(), _new_position));
     }
     fn on_ask_question(&mut self, _category: Category, _question: Option<String>) {}
-    fn on_correct_answer(&mut self) {}
     fn on_win_point(&mut self, player: &str, new_score: usize) {
         self.spy
             .borrow_mut()
             .wins
             .push((player.to_string(), new_score));
     }
-    fn on_wrong_answer(&mut self) {}
     fn on_go_to_penalty_box(&mut self, player: &str) {
         *self
             .spy
