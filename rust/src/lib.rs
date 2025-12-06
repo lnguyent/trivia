@@ -90,7 +90,7 @@ pub trait GameObserver {
     fn on_user_added(&mut self, new_player_name: &str);
     fn on_roll(&mut self, player: &str, roll: Dice);
     fn on_move(&mut self, player: &str, new_position: usize);
-    fn on_ask_question(&mut self, category: Category, question: Option<String>);
+    fn on_ask_question(&mut self, category: Category);
     fn on_win_point(&mut self, player: &str, new_score: usize);
     fn on_go_to_penalty_box(&mut self, player: &str);
     fn on_leave_penalty_box(&mut self, player: &str);
@@ -118,9 +118,8 @@ impl GameObserver for PrintBasedGameObserver {
     fn on_move(&mut self, player: &str, new_position: usize) {
         println!("{0} 's new location is {1}", player, new_position);
     }
-    fn on_ask_question(&mut self, category: Category, question: Option<String>) {
+    fn on_ask_question(&mut self, category: Category) {
         println!("The category is {}", category);
-        println!("{:?}", question.unwrap());
     }
     fn on_win_point(&mut self, player: &str, new_score: usize) {
         println!("Answer was correct!!!!");
@@ -138,6 +137,65 @@ impl GameObserver for PrintBasedGameObserver {
     }
 }
 
+// Command pattern for cards.
+// I think it's more readable to name it "Card" rather than "CarfCommand"
+// and to name the method "ask_question" rather than "execute".
+pub trait Card {
+    fn ask_question(&self) -> bool;
+}
+
+pub trait Deck {
+    fn take_card(&mut self, category: Category) -> Option<Box<dyn Card>>;
+}
+
+struct DummyCard {
+    question: String,
+}
+
+impl DummyCard {
+    pub fn new(question: String) -> Self {
+        DummyCard { question }
+    }
+}
+
+impl Card for DummyCard {
+    fn ask_question(&self) -> bool {
+        println!("{:?}", self.question);
+        true
+    }
+}
+
+struct DummyDeck {
+    cards: HashMap<Category, Vec<DummyCard>>,
+}
+
+impl Default for DummyDeck {
+    fn default() -> Self {
+        let mut cards = HashMap::new();
+        for index in 0..NUM_CARDS_PER_CATEGORY {
+            for category in Category::iter() {
+                cards
+                    .entry(category.clone())
+                    .or_insert_with(Vec::new)
+                    .push(DummyCard::new(
+                        category.to_string() + " Question " + &index.to_string(),
+                    ));
+            }
+        }
+        DummyDeck { cards }
+    }
+}
+
+impl Deck for DummyDeck {
+    fn take_card(&mut self, category: Category) -> Option<Box<dyn Card>> {
+        let card = self.cards.get_mut(&category).and_then(|cards| cards.pop());
+        match card {
+            Some(c) => Some(Box::new(c)),
+            None => None,
+        }
+    }
+}
+
 pub struct Game {
     players: Vec<String>,
     places: [usize; MAX_PLAYERS],
@@ -149,20 +207,22 @@ pub struct Game {
     categories: Vec<Category>,
     num_places: usize,
 
-    questions: HashMap<Category, Vec<String>>,
-
+    deck: Box<dyn Deck>,
     observer: Box<dyn GameObserver>,
 }
 
 impl Default for Game {
     fn default() -> Game {
-        Game::new()
+        Game::new(
+            Box::new(DummyDeck::default()),
+            Box::new(PrintBasedGameObserver::default()),
+        )
     }
 }
 
 impl Game {
-    pub fn new() -> Game {
-        let mut game = Game {
+    pub fn new(deck: Box<dyn Deck>, observer: Box<dyn GameObserver>) -> Self {
+        Game {
             players: vec![],
             places: [0; MAX_PLAYERS],
             purses: [0; MAX_PLAYERS],
@@ -171,25 +231,9 @@ impl Game {
             is_getting_out_of_penaltybox: false,
             categories: Category::iter().collect(),
             num_places: Category::COUNT * NUM_PLACES_PER_CATEGORY,
-            questions: HashMap::new(),
-            observer: Box::new(PrintBasedGameObserver::default()),
-        };
-        for x in 0..NUM_CARDS_PER_CATEGORY {
-            for category in Category::iter() {
-                let question = game.create_question(category.clone(), x);
-                game.questions
-                    .entry(category)
-                    .or_insert_with(Vec::new)
-                    .push(question);
-            }
+            deck: deck,
+            observer: observer,
         }
-        game
-    }
-
-    pub fn new_with_observer(observer: Box<dyn GameObserver>) -> Game {
-        let mut game = Game::new();
-        game.observer = observer;
-        game
     }
 
     fn how_many_players(&self) -> usize {
@@ -204,10 +248,6 @@ impl Game {
         self.categories[self.places[self.current_player] % self.categories.len()].clone()
     }
 
-    fn create_question(&self, category: Category, index: usize) -> String {
-        category.to_string() + " Question " + &index.to_string()
-    }
-
     pub fn add(&mut self, player_name: String) -> bool {
         let l_player = player_name.clone();
         self.players.push(player_name);
@@ -218,7 +258,7 @@ impl Game {
         true
     }
 
-    pub fn wrong_answer(&mut self) -> bool {
+    fn wrong_answer(&mut self) -> bool {
         self.go_to_penalty_box();
         self.change_player();
         true
@@ -233,13 +273,11 @@ impl Game {
 }
 
 impl Game {
-    fn ask_question(&mut self) {
-        let question = self
-            .questions
-            .get_mut(&self.current_category())
-            .map(|questions| questions.pop().unwrap()); // FIXME: could be None!
-        self.observer
-            .on_ask_question(self.current_category(), question.clone());
+    fn ask_question(&mut self) -> bool {
+        let category = self.current_category();
+        self.observer.on_ask_question(category.clone());
+        let card = self.deck.take_card(category).unwrap();
+        card.ask_question()
     }
 }
 
@@ -274,7 +312,7 @@ impl Game {
         self.in_penaltybox[self.current_player] = true;
     }
 
-    pub fn roll(&mut self, roll: Dice) {
+    pub fn roll(&mut self, roll: Dice) -> bool {
         self.observer
             .on_roll(self.players[self.current_player].as_str(), roll.clone());
         if self.in_penaltybox[self.current_player] {
@@ -282,11 +320,16 @@ impl Game {
                 self.leave_penalty_box();
             } else {
                 self.stay_in_penalty_box();
-                return;
+                return true;
             }
         }
         self.move_forward((&roll).into());
-        self.ask_question();
+        let answered_correctly = self.ask_question();
+        if answered_correctly {
+            return self.was_correctly_answered();
+        } else {
+            return self.wrong_answer();
+        }
     }
 }
 
@@ -298,7 +341,7 @@ impl Game {
             self.purses[self.current_player],
         );
     }
-    pub fn was_correctly_answered(&mut self) -> bool {
+    fn was_correctly_answered(&mut self) -> bool {
         if self.in_penaltybox[self.current_player] && !self.is_getting_out_of_penaltybox {
             self.change_player();
             return true;

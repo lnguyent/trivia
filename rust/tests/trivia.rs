@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use trivia::{Category, Dice, Game, GameObserver};
+use trivia::{Card, Category, Deck, Dice, Game, GameObserver};
 
 struct Spy {
     count_go_to_penalty_box: HashMap<String, usize>,
@@ -42,7 +42,7 @@ impl GameObserver for SpyWrapper {
             .moves
             .push((_player.to_string(), _new_position));
     }
-    fn on_ask_question(&mut self, category: Category, _question: Option<String>) {
+    fn on_ask_question(&mut self, category: Category) {
         self.spy.borrow_mut().questions.push(category);
     }
     fn on_win_point(&mut self, player: &str, new_score: usize) {
@@ -70,11 +70,65 @@ impl GameObserver for SpyWrapper {
     fn on_stay_in_penalty_box(&mut self, _player: &str) {}
 }
 
+struct PredefinedAnswerCard {
+    answer: bool,
+}
+
+impl PredefinedAnswerCard {
+    pub fn new(answer: bool) -> Self {
+        PredefinedAnswerCard { answer }
+    }
+}
+
+impl Card for PredefinedAnswerCard {
+    fn ask_question(&self) -> bool {
+        self.answer
+    }
+}
+
+struct PredefinedAnswersDeck {
+    answers: Vec<bool>,
+    cursor: usize,
+}
+
+impl PredefinedAnswersDeck {
+    pub fn new(answers: Vec<bool>) -> Self {
+        PredefinedAnswersDeck { answers, cursor: 0 }
+    }
+
+    pub fn always_true() -> Self {
+        PredefinedAnswersDeck {
+            answers: vec![true],
+            cursor: 0,
+        }
+    }
+
+    pub fn always_false() -> Self {
+        PredefinedAnswersDeck {
+            answers: vec![false],
+            cursor: 0,
+        }
+    }
+}
+
+impl Deck for PredefinedAnswersDeck {
+    fn take_card(&mut self, _category: Category) -> Option<Box<dyn Card>> {
+        if self.cursor >= self.answers.len() {
+            return None;
+        }
+        let answer = self.answers[self.cursor];
+        self.cursor += 1;
+        self.cursor %= self.answers.len();
+        Some(Box::new(PredefinedAnswerCard::new(answer)))
+    }
+}
+
 #[test]
 fn test_when_not_in_penalty_box_then_move() {
+    let deck = PredefinedAnswersDeck::always_true();
     let spy = Rc::new(RefCell::new(Spy::default()));
     let spy_wrapper = SpyWrapper { spy: spy.clone() };
-    let mut game = Game::new_with_observer(Box::new(spy_wrapper));
+    let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
 
     game.add("Dave".to_string());
     game.roll(Dice::Four); // move
@@ -85,17 +139,15 @@ fn test_when_not_in_penalty_box_then_move() {
 
 #[test]
 fn test_when_leaving_penalty_box_then_not_in_penalty_box_anymore() {
+    let deck = PredefinedAnswersDeck::new(vec![false, true, true]);
     let spy = Rc::new(RefCell::new(Spy::default()));
     let spy_wrapper = SpyWrapper { spy: spy.clone() };
-    let mut game = Game::new_with_observer(Box::new(spy_wrapper));
+    let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
 
     game.add("Alice".to_string());
-    game.roll(Dice::One);
-    game.wrong_answer(); // goes to penalty box
+    game.roll(Dice::One); // goes to penalty box
     game.roll(Dice::One); // leaves penalty box
-    game.was_correctly_answered();
     game.roll(Dice::One); // already out of penalty box
-    game.was_correctly_answered();
 
     assert_eq!(
         spy.borrow().count_leave_penalty_box.get("Alice").unwrap(),
@@ -105,13 +157,13 @@ fn test_when_leaving_penalty_box_then_not_in_penalty_box_anymore() {
 
 #[test]
 fn test_when_in_penalty_box_then_do_not_move() {
+    let deck = PredefinedAnswersDeck::always_false();
     let spy = Rc::new(RefCell::new(Spy::default()));
     let spy_wrapper = SpyWrapper { spy: spy.clone() };
-    let mut game = Game::new_with_observer(Box::new(spy_wrapper));
+    let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
 
     game.add("Bob".to_string());
-    game.roll(Dice::One); // move
-    game.wrong_answer(); // goes to penalty box
+    game.roll(Dice::One); // goes to penalty box
     game.roll(Dice::Two); // stays in penalty box and do not move
 
     assert_eq!(spy.borrow().moves.len(), 1);
@@ -119,13 +171,13 @@ fn test_when_in_penalty_box_then_do_not_move() {
 }
 #[test]
 fn test_when_in_penalty_box_and_roll_odd_then_leave_penalty_box() {
+    let deck = PredefinedAnswersDeck::new(vec![false, true]);
     let spy = Rc::new(RefCell::new(Spy::default()));
     let spy_wrapper = SpyWrapper { spy: spy.clone() };
-    let mut game = Game::new_with_observer(Box::new(spy_wrapper));
+    let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
 
     game.add("Eve".to_string());
-    game.roll(Dice::One); // move
-    game.wrong_answer(); // goes to penalty box
+    game.roll(Dice::One); // goes to penalty box
     game.roll(Dice::Five); // leaves penalty box
 
     assert_eq!(spy.borrow().count_leave_penalty_box.get("Eve").unwrap(), &1);
@@ -133,13 +185,13 @@ fn test_when_in_penalty_box_and_roll_odd_then_leave_penalty_box() {
 
 #[test]
 fn test_when_in_penalty_box_and_leaving_then_move() {
+    let deck = PredefinedAnswersDeck::new(vec![false, true]);
     let spy = Rc::new(RefCell::new(Spy::default()));
     let spy_wrapper = SpyWrapper { spy: spy.clone() };
-    let mut game = Game::new_with_observer(Box::new(spy_wrapper));
+    let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
 
     game.add("Carol".to_string());
-    game.roll(Dice::One); // move
-    game.wrong_answer(); // goes to penalty box
+    game.roll(Dice::One); // goes to penalty box
     game.roll(Dice::Three); // leaves penalty box and moves
 
     assert_eq!(spy.borrow().moves.len(), 2);
@@ -149,15 +201,14 @@ fn test_when_in_penalty_box_and_leaving_then_move() {
 
 #[test]
 fn test_when_answer_correctly_then_win_one_point() {
+    let deck = PredefinedAnswersDeck::always_true();
     let spy = Rc::new(RefCell::new(Spy::default()));
     let spy_wrapper = SpyWrapper { spy: spy.clone() };
-    let mut game = Game::new_with_observer(Box::new(spy_wrapper));
+    let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
 
     game.add("Frank".to_string());
-    game.roll(Dice::Two); // move
-    game.was_correctly_answered(); // wins one point
-    game.roll(Dice::Two); // move
-    game.was_correctly_answered(); // wins another point
+    game.roll(Dice::Two); // wins one point
+    game.roll(Dice::Two); // wins one point
 
     assert_eq!(spy.borrow().wins.len(), 2);
     assert_eq!(spy.borrow().wins[0].0, "Frank");
@@ -168,15 +219,15 @@ fn test_when_answer_correctly_then_win_one_point() {
 
 #[test]
 fn test_when_user_has_six_points_then_wins() {
+    let deck = PredefinedAnswersDeck::always_true();
     let spy = Rc::new(RefCell::new(Spy::default()));
     let spy_wrapper = SpyWrapper { spy: spy.clone() };
-    let mut game = Game::new_with_observer(Box::new(spy_wrapper));
+    let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
 
     game.add("Grace".to_string());
     let mut not_a_winner = true;
     while not_a_winner {
-        game.roll(Dice::Three);
-        not_a_winner = game.was_correctly_answered();
+        not_a_winner = game.roll(Dice::Three);
     }
 
     assert_eq!(spy.borrow().wins.len(), 6);
@@ -186,18 +237,16 @@ fn test_when_user_has_six_points_then_wins() {
 
 #[test]
 fn test_on_roll_is_called() {
+    let deck = PredefinedAnswersDeck::always_true();
     let spy = Rc::new(RefCell::new(Spy::default()));
     let spy_wrapper = SpyWrapper { spy: spy.clone() };
-    let mut game = Game::new_with_observer(Box::new(spy_wrapper));
+    let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
 
     game.add("Heidi".to_string());
     game.add("Ivan".to_string());
     game.roll(Dice::Four);
-    game.was_correctly_answered();
     game.roll(Dice::Two);
-    game.wrong_answer();
     game.roll(Dice::Three);
-    game.was_correctly_answered();
     game.roll(Dice::Six);
 
     assert_eq!(spy.borrow().rolls.len(), 4);
@@ -213,14 +262,6 @@ fn test_on_roll_is_called() {
 
 #[test]
 fn test_full_game() {
-    let spy = Rc::new(RefCell::new(Spy::default()));
-    let spy_wrapper = SpyWrapper { spy: spy.clone() };
-    let mut game = Game::new_with_observer(Box::new(spy_wrapper));
-
-    game.add("Chet".to_string());
-    game.add("Pat".to_string());
-    game.add("Sue".to_string());
-
     let rolls = vec![
         (Dice::Four, true),
         (Dice::Four, true),
@@ -239,15 +280,18 @@ fn test_full_game() {
         (Dice::Five, true),
         (Dice::Five, true),
     ];
+    let deck = PredefinedAnswersDeck::new(rolls.iter().map(|roll| roll.1).collect());
+    let spy = Rc::new(RefCell::new(Spy::default()));
+    let spy_wrapper = SpyWrapper { spy: spy.clone() };
+    let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
+
+    game.add("Chet".to_string());
+    game.add("Pat".to_string());
+    game.add("Sue".to_string());
 
     let mut not_a_winner: bool;
-    for (roll, answer) in rolls {
-        game.roll(roll);
-        if answer {
-            not_a_winner = game.was_correctly_answered();
-        } else {
-            not_a_winner = game.wrong_answer();
-        }
+    for roll in rolls {
+        not_a_winner = game.roll(roll.0);
         if !not_a_winner {
             break;
         }
