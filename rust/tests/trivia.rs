@@ -123,6 +123,27 @@ impl Deck for PredefinedAnswersDeck {
     }
 }
 
+struct FixedSizeDeck {
+    size: usize,
+    cursor: usize,
+}
+
+impl FixedSizeDeck {
+    pub fn new(size: usize) -> Self {
+        FixedSizeDeck { size, cursor: 0 }
+    }
+}
+
+impl Deck for FixedSizeDeck {
+    fn take_card(&mut self, _category: Category) -> Option<Box<dyn Card>> {
+        if self.cursor >= self.size {
+            return None;
+        }
+        self.cursor += 1;
+        Some(Box::new(PredefinedAnswerCard::new(true)))
+    }
+}
+
 #[test]
 fn test_when_not_in_penalty_box_then_move() {
     let deck = PredefinedAnswersDeck::always_true();
@@ -225,9 +246,9 @@ fn test_when_user_has_six_points_then_wins() {
     let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
 
     game.add("Grace".to_string());
-    let mut not_a_winner = true;
-    while not_a_winner {
-        not_a_winner = game.roll(Dice::Three);
+    let mut game_must_go_on = true;
+    while game_must_go_on {
+        game_must_go_on = game.roll(Dice::Three);
     }
 
     assert_eq!(spy.borrow().wins.len(), 6);
@@ -261,6 +282,26 @@ fn test_on_roll_is_called() {
 }
 
 #[test]
+fn test_when_no_more_card_then_game_stops() {
+    let deck = FixedSizeDeck::new(3); // only 3 cards available
+    let spy = Rc::new(RefCell::new(Spy::default()));
+    let spy_wrapper = SpyWrapper { spy: spy.clone() };
+    let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
+
+    game.add("Judy".to_string());
+    game.add("Karl".to_string());
+
+    let mut game_must_go_on = true;
+    let mut roll_count = 0;
+    while game_must_go_on {
+        game_must_go_on = game.roll(Dice::Two);
+        roll_count += 1;
+    }
+
+    assert_eq!(roll_count, 4); // 4 rolls until no more cards
+}
+
+#[test]
 fn test_full_game() {
     let rolls = vec![
         (Dice::Four, true),
@@ -289,10 +330,10 @@ fn test_full_game() {
     game.add("Pat".to_string());
     game.add("Sue".to_string());
 
-    let mut not_a_winner: bool;
+    let mut game_must_go_on: bool;
     for roll in rolls {
-        not_a_winner = game.roll(roll.0);
-        if !not_a_winner {
+        game_must_go_on = game.roll(roll.0);
+        if !game_must_go_on {
             break;
         }
     }

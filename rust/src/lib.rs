@@ -196,6 +196,11 @@ impl Deck for DummyDeck {
     }
 }
 
+struct AskQuestionResult {
+    pub game_must_go_on: bool,
+    pub answered_correctly: bool,
+}
+
 pub struct Game {
     players: Vec<String>,
     places: [usize; MAX_PLAYERS],
@@ -241,7 +246,7 @@ impl Game {
     }
 
     fn did_player_win(&self) -> bool {
-        self.purses[self.current_player] != TARGET_SCORE
+        self.purses[self.current_player] == TARGET_SCORE
     }
 
     fn current_category(&self) -> Category {
@@ -273,11 +278,20 @@ impl Game {
 }
 
 impl Game {
-    fn ask_question(&mut self) -> bool {
+    fn ask_question(&mut self) -> AskQuestionResult {
         let category = self.current_category();
         self.observer.on_ask_question(category.clone());
-        let card = self.deck.take_card(category).unwrap();
-        card.ask_question()
+        if let Some(card) = self.deck.take_card(category) {
+            AskQuestionResult {
+                game_must_go_on: true,
+                answered_correctly: card.ask_question(),
+            }
+        } else {
+            AskQuestionResult {
+                game_must_go_on: false,
+                answered_correctly: false,
+            }
+        }
     }
 }
 
@@ -324,7 +338,13 @@ impl Game {
             }
         }
         self.move_forward((&roll).into());
-        let answered_correctly = self.ask_question();
+        let AskQuestionResult {
+            game_must_go_on,
+            answered_correctly,
+        } = self.ask_question();
+        if !game_must_go_on {
+            return false;
+        }
         if answered_correctly {
             return self.was_correctly_answered();
         } else {
@@ -343,8 +363,8 @@ impl Game {
     }
     fn was_correctly_answered(&mut self) -> bool {
         self.win_one_point();
-        let winner: bool = self.did_player_win();
+        let game_must_go_on: bool = !self.did_player_win();
         self.change_player();
-        winner
+        game_must_go_on
     }
 }
