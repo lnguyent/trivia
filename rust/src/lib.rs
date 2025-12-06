@@ -342,10 +342,6 @@ impl Game {
         );
     }
     fn was_correctly_answered(&mut self) -> bool {
-        if self.in_penaltybox[self.current_player] && !self.is_getting_out_of_penaltybox {
-            self.change_player();
-            return true;
-        }
         self.win_one_point();
         let winner: bool = self.did_player_win();
         self.change_player();
