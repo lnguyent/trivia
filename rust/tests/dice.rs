@@ -17,6 +17,22 @@ fn test_dice_can_be_created_from_i32() {
 }
 
 #[test]
+fn test_dice_can_be_created_from_usize() {
+    let dice1 = Dice::from(1);
+    let dice2 = Dice::from(2);
+    let dice3 = Dice::from(3);
+    let dice4 = Dice::from(4);
+    let dice5 = Dice::from(5);
+    let dice6 = Dice::from(6);
+    assert_eq!(dice1, Dice::One);
+    assert_eq!(dice2, Dice::Two);
+    assert_eq!(dice3, Dice::Three);
+    assert_eq!(dice4, Dice::Four);
+    assert_eq!(dice5, Dice::Five);
+    assert_eq!(dice6, Dice::Six);
+}
+
+#[test]
 fn test_when_invalid_value_then_panic() {
     let result = std::panic::catch_unwind(|| {
         let _ = Dice::from(0);

@@ -58,6 +58,19 @@ impl From<i32> for Dice {
         }
     }
 }
+impl From<usize> for Dice {
+    fn from(value: usize) -> Self {
+        match value {
+            1 => Dice::One,
+            2 => Dice::Two,
+            3 => Dice::Three,
+            4 => Dice::Four,
+            5 => Dice::Five,
+            6 => Dice::Six,
+            _ => panic!("Invalid dice value"),
+        }
+    }
+}
 
 impl Dice {
     pub fn is_odd(&self) -> bool {
@@ -241,89 +254,13 @@ impl Game {
         }
     }
 
-    fn how_many_players(&self) -> usize {
-        self.players.len()
-    }
-
-    fn did_player_win(&self) -> bool {
-        self.purses[self.current_player] == TARGET_SCORE
-    }
-
-    fn current_category(&self) -> Category {
-        self.categories[self.places[self.current_player] % self.categories.len()].clone()
-    }
-
-    pub fn add(&mut self, player_name: String) -> bool {
+    pub fn add(&mut self, player_name: String) {
         let l_player = player_name.clone();
         self.players.push(player_name);
-        self.places[self.how_many_players()] = 0;
-        self.purses[self.how_many_players()] = 0;
-        self.in_penaltybox[self.how_many_players()] = false;
+        self.places[self.num_players()] = 0;
+        self.purses[self.num_players()] = 0;
+        self.in_penaltybox[self.num_players()] = false;
         self.observer.on_user_added(l_player.as_str());
-        true
-    }
-
-    fn wrong_answer(&mut self) -> bool {
-        self.go_to_penalty_box();
-        self.change_player();
-        true
-    }
-
-    fn change_player(&mut self) {
-        self.current_player += 1;
-        if self.current_player == self.players.len() {
-            self.current_player = 0;
-        }
-    }
-}
-
-impl Game {
-    fn ask_question(&mut self) -> AskQuestionResult {
-        let category = self.current_category();
-        self.observer.on_ask_question(category.clone());
-        if let Some(card) = self.deck.take_card(category) {
-            AskQuestionResult {
-                game_must_go_on: true,
-                answered_correctly: card.ask_question(),
-            }
-        } else {
-            AskQuestionResult {
-                game_must_go_on: false,
-                answered_correctly: false,
-            }
-        }
-    }
-}
-
-impl Game {
-    fn move_forward(&mut self, roll: usize) {
-        self.places[self.current_player] += roll;
-        if self.places[self.current_player] > self.num_places - 1 {
-            self.places[self.current_player] -= self.num_places;
-        }
-        self.observer.on_move(
-            self.players[self.current_player].as_str(),
-            self.places[self.current_player],
-        );
-    }
-
-    fn leave_penalty_box(&mut self) {
-        self.is_getting_out_of_penaltybox = true;
-        self.in_penaltybox[self.current_player] = false;
-        self.observer
-            .on_leave_penalty_box(self.players[self.current_player].as_str());
-    }
-
-    fn stay_in_penalty_box(&mut self) {
-        self.observer
-            .on_stay_in_penalty_box(self.players[self.current_player].as_str());
-        self.is_getting_out_of_penaltybox = false;
-    }
-
-    fn go_to_penalty_box(&mut self) {
-        self.observer
-            .on_go_to_penalty_box(self.players[self.current_player].as_str());
-        self.in_penaltybox[self.current_player] = true;
     }
 
     pub fn roll(&mut self, roll: Dice) -> bool {
@@ -346,25 +283,95 @@ impl Game {
             return false;
         }
         if answered_correctly {
-            return self.was_correctly_answered();
+            return self.correct_answer();
         } else {
             return self.wrong_answer();
         }
     }
-}
 
-impl Game {
+    fn move_forward(&mut self, roll: usize) {
+        self.places[self.current_player] += roll;
+        if self.places[self.current_player] > self.num_places - 1 {
+            self.places[self.current_player] -= self.num_places;
+        }
+        self.observer.on_move(
+            self.players[self.current_player].as_str(),
+            self.places[self.current_player],
+        );
+    }
+
+    fn ask_question(&mut self) -> AskQuestionResult {
+        let category = self.current_category();
+        self.observer.on_ask_question(category.clone());
+        if let Some(card) = self.deck.take_card(category) {
+            AskQuestionResult {
+                game_must_go_on: true,
+                answered_correctly: card.ask_question(),
+            }
+        } else {
+            AskQuestionResult {
+                game_must_go_on: false,
+                answered_correctly: false,
+            }
+        }
+    }
+
+    fn wrong_answer(&mut self) -> bool {
+        self.go_to_penalty_box();
+        self.change_player();
+        true
+    }
+
+    fn correct_answer(&mut self) -> bool {
+        self.win_one_point();
+        let game_must_go_on: bool = !self.did_player_win();
+        self.change_player();
+        game_must_go_on
+    }
+
+    fn leave_penalty_box(&mut self) {
+        self.is_getting_out_of_penaltybox = true;
+        self.in_penaltybox[self.current_player] = false;
+        self.observer
+            .on_leave_penalty_box(self.players[self.current_player].as_str());
+    }
+
+    fn stay_in_penalty_box(&mut self) {
+        self.observer
+            .on_stay_in_penalty_box(self.players[self.current_player].as_str());
+        self.is_getting_out_of_penaltybox = false;
+    }
+
+    fn go_to_penalty_box(&mut self) {
+        self.observer
+            .on_go_to_penalty_box(self.players[self.current_player].as_str());
+        self.in_penaltybox[self.current_player] = true;
+    }
+
+    fn num_players(&self) -> usize {
+        self.players.len()
+    }
+
+    fn did_player_win(&self) -> bool {
+        self.purses[self.current_player] == TARGET_SCORE
+    }
+
+    fn current_category(&self) -> Category {
+        self.categories[self.places[self.current_player] % self.categories.len()].clone()
+    }
+
+    fn change_player(&mut self) {
+        self.current_player += 1;
+        if self.current_player == self.players.len() {
+            self.current_player = 0;
+        }
+    }
+
     fn win_one_point(&mut self) {
         self.purses[self.current_player] += 1;
         self.observer.on_win_point(
             self.players[self.current_player].as_str(),
             self.purses[self.current_player],
         );
-    }
-    fn was_correctly_answered(&mut self) -> bool {
-        self.win_one_point();
-        let game_must_go_on: bool = !self.did_player_win();
-        self.change_player();
-        game_must_go_on
     }
 }
