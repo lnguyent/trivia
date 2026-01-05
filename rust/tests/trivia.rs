@@ -246,11 +246,17 @@ fn test_when_user_has_six_points_then_wins() {
     let mut game = Game::new(Box::new(deck), Box::new(spy_wrapper));
 
     game.add("Grace".to_string());
-    let mut game_must_go_on = true;
-    while game_must_go_on {
-        game_must_go_on = game.roll(Dice::Three);
-    }
 
+    let mut game_continues = true;
+    game_continues &= game.roll(Dice::Three);
+    game_continues &= game.roll(Dice::Three);
+    game_continues &= game.roll(Dice::Three);
+    game_continues &= game.roll(Dice::Three);
+    game_continues &= game.roll(Dice::Three);
+    let game_must_go_on = game.roll(Dice::Three); // win the game
+
+    assert_eq!(game_continues, true); // on first five steps the game did not finish
+    assert_eq!(game_must_go_on, false); // game ended in six steps
     assert_eq!(spy.borrow().wins.len(), 6);
     assert_eq!(spy.borrow().wins[5].0, "Grace");
     assert_eq!(spy.borrow().wins[5].1, 6);
@@ -291,14 +297,14 @@ fn test_when_no_more_card_then_game_stops() {
     game.add("Judy".to_string());
     game.add("Karl".to_string());
 
-    let mut game_must_go_on = true;
-    let mut roll_count = 0;
-    while game_must_go_on {
-        game_must_go_on = game.roll(Dice::Two);
-        roll_count += 1;
-    }
+    let mut game_continues = true;
+    game_continues &= game.roll(Dice::Two);
+    game_continues &= game.roll(Dice::Two);
+    game_continues &= game.roll(Dice::Two);
+    let game_must_go_on = game.roll(Dice::Two); // no more cards available
 
-    assert_eq!(roll_count, 4); // 4 rolls until no more cards
+    assert_eq!(game_continues, true); // on first three steps the game did not finish
+    assert_eq!(game_must_go_on, false); // game ended in four steps
 }
 
 #[test]
